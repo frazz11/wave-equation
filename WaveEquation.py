@@ -2,6 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys
 
+import matplotlib.animation as animation
+
 class Wave_1D():
     """
     1D wave equation. Solving
@@ -57,12 +59,11 @@ class Wave_1D():
         self.i_s = self.num_ghost
         self.i_f = self.num_ghost + self.npoints
 
-        print(f"i_s = {self.i_s}")
-        print(f"i_f = {self.i_f}")
         
         # Define staggered grid shifted by dx/2, with also ghosts
         self.grid_size = self.npoints + 2*self.num_ghost
         self.grid_x1 = np.arange(self.grid_size)*self.dx1-(self.x1max-self.x1min)/2-self.num_ghost*self.dx1+self.dx1*0.5
+
 
 
         self.c  = c
@@ -144,12 +145,10 @@ class Wave_1D():
         if periodic:
             for i in range(self.num_ghost):
 
-                print(f"i = {i} corresponds to {self.i_f-self.num_ghost+i}")
 
                 u[i,0] = u[self.i_f-self.num_ghost+i,0]
                 u[i,1] = u[self.i_f-self.num_ghost+i,1]
 
-                print(f"i = {self.i_f+i} corresponds to {self.i_s+i}")
                 u[self.i_f+i,0] = u[self.i_s+i,0]
                 u[self.i_f+i,1] = u[self.i_s+i,1]
 
@@ -168,33 +167,45 @@ class Wave_1D():
                  -  1 * u_array[self.num_ghost+2 : self.grid_size-self.num_ghost+2]) \
                  / 12.* self.oodx*self.oodx
 
-
         return u_2der
+
+    def initial_conditions(self, name, **kwargs):
+        if name == "gaussian":
+            u = self.id_gaussian(kwargs["alpha"], kwargs["v"])
+        else:
+            print(f"Initial conditions {name} not implemented yet.")
+        return u
+
+
+    def id_gaussian(self, alpha, v):
+        '''
+        u = (exp(alpha*(x-ct)^2) + exp(alpha*(x+ct)^2))/2
+        '''
+        u = list()
+        u = np.zeros((np.size(self.grid_x1), 2))
+
+        alpha = 8
+        u[:,0] = np.exp(-alpha*self.grid_x1**2)
+        u[:,1] = -2*alpha*(self.grid_x1)*u[:,0]*v
+        periodic = True
+        if periodic:
+            for i in range(self.num_ghost):
+
+
+                u[i,0] = u[self.i_f-self.num_ghost+i,0]
+                u[i,1] = u[self.i_f-self.num_ghost+i,1]
+
+                u[self.i_f+i,0] = u[self.i_s+i,0]
+                u[self.i_f+i,1] = u[self.i_s+i,1]
+        return u
+        
 
 
     def run(self,
             final_time = 1.):
 
-        u = list()
-        u = np.zeros((np.size(self.grid_x1), 2))
 
-        alpha = 2
-        u[:,0] = np.exp(-alpha*self.grid_x1**2)
-        u[:,1] = -2*self.grid_x1*alpha*u[:,0]
-
-        periodic = True
-        if periodic:
-            for i in range(self.num_ghost):
-
-                print(f"i = {i} corresponds to {self.i_f-self.num_ghost+i}")
-
-                u[i,0] = u[self.i_f-self.num_ghost+i,0]
-                u[i,1] = u[self.i_f-self.num_ghost+i,1]
-
-                print(f"i = {self.i_f+i} corresponds to {self.i_s+i}")
-                u[self.i_f+i,0] = u[self.i_s+i,0]
-                u[self.i_f+i,1] = u[self.i_s+i,1]
-        
+        u = self.initial_conditions("gaussian", alpha = 2, v = 0)        
         test_sec_der = False
         if test_sec_der:
             der_sec_anal = -2*alpha*(u[:,0]+self.grid_x1*(-2)*self.grid_x1*alpha*u[:,0])
@@ -204,11 +215,18 @@ class Wave_1D():
             plt.plot(self.grid_x1[self.i_s:self.i_f], der_sec, "-sr")
             plt.show()
 
-        plt.plot(self.grid_x1, u[:,0], "-o")
-        plt.show()
+        fig, ax = plt.subplots()
 
+        artists = []
+
+        container = ax.plot(self.grid_x1[self.i_s:self.i_f], u[self.i_s:self.i_f,0], "-o")
+        artists.append(container)
+        
         t = 0.
         n_iter = 0
+
+        
+
 
         while t <= final_time:
             print(t)
@@ -216,16 +234,20 @@ class Wave_1D():
             n_iter += 1
 
             u = self.integrate(u)
-            plt.plot(self.grid_x1[self.i_s:self.i_f], u[self.i_s:self.i_f,0], "-o")
-            plt.title("Time = t")
-            plt.show()
+            ax.set_title(f"Time = {t}")
+            container = ax.plot(self.grid_x1[self.i_s:self.i_f], u[self.i_s:self.i_f,0], "-o", c = "tab:blue")
+
+            artists.append(container)
+        ani = animation.ArtistAnimation(fig=fig, artists=artists, interval=100)
+        plt.show()
+
             
 if __name__ == "__main__":
 
-    myWave = Wave_1D(npoints = 21,
+    myWave = Wave_1D(npoints = 101,
                      x1min = -1,\
                      x1max = +1,
                      CFL = 0.5,
                      integrator = "rk4")
 
-    myWave.run(final_time = 10.)
+    myWave.run(final_time = 2.)
