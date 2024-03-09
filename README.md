@@ -1,7 +1,7 @@
 # wave-equation
 Wave equation solver in python.
 
-Evolution of a gaussian package with o initial velocity
+Evolution of a gaussian package with null initial velocity
 
 ![](fig/Gaussian-0vel/output.gif)
 
